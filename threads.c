@@ -16,6 +16,7 @@
 
 void* thread_func(void *arg)
 {
+	char buf6[INET6_ADDRSTRLEN];
         pthread_t id = pthread_self();
 
 	if (arg == NULL) { /* silence compiler warning */ }
@@ -45,16 +46,38 @@ void* thread_func(void *arg)
 				{
 					//accept a client
 					listen(sock,0);
-					sin_size = sizeof(struct sockaddr_in);
+					if (ipv6)
+					{
+						sin_size = sizeof(struct sockaddr_in6);
+					} else {
+						sin_size = sizeof(struct sockaddr_in);
+					}
+
 					connected = 0;
-					connected = accept(sock, (struct sockaddr *)&remote_addr,&sin_size);
-					debug(3, 0, "Client connected %s:%d", inet_ntoa(remote_addr.sin_addr),ntohs(remote_addr.sin_port));
+					if (ipv6)
+					{
+						connected = accept(sock, (struct sockaddr *)&remote_addr6,&sin_size);
+						inet_ntop(AF_INET6, &remote_addr6.sin6_addr, buf6, sizeof(buf6));
+						debug(3, 0, "Client connected %s:%d", buf6, ntohs(remote_addr6.sin6_port));
+					} else {
+						connected = accept(sock, (struct sockaddr *)&remote_addr,&sin_size);
+						debug(3, 0, "Client connected %s:%d", inet_ntoa(remote_addr.sin_addr),ntohs(remote_addr.sin_port));
+					}
 				} else {
 					connected = sock;
 				}
 				while (1)
 				{
-					if (recvdata(connected) == -1) { debug(6, 0, "Breaking in server_recvdata_connected"); break; }
+					#ifdef _COMPRESS
+					if (compmode)
+					{
+						if (recvdata_c(connected) == -1) { debug(6, 0, "Breaking in server_recvdata_connected"); break; }
+					} else {
+					#endif
+						if (recvdata(connected) == -1) { debug(6, 0, "Breaking in server_recvdata_connected"); break; }
+					#ifdef _COMPRESS
+					}
+					#endif
 				}
 			}
 		} else {
@@ -62,7 +85,16 @@ void* thread_func(void *arg)
 			connected = sock;
 			while (1)
 			{
-				if (recvdata(connected) == -1) { debug(6, 0, "Breaking in client_recvdata_connected"); break; }
+				#ifdef _COMPRESS
+				if (compmode)
+				{
+					if (recvdata_c(connected) == -1) { debug(6, 0, "Breaking in client_recvdata_connected"); break; }
+				} else {
+				#endif
+					if (recvdata(connected) == -1) { debug(6, 0, "Breaking in client_recvdata_connected"); break; }
+				#ifdef _COMPRESS
+				}
+				#endif
 			}
 			debug(1, 0, "Client quitting");
 		}

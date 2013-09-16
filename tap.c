@@ -85,4 +85,71 @@ int confif(const char *ifname, const char *ip, const char *netmask)
 
 	return 0;
 }
+
+struct in6_ifreq {
+	struct in6_addr ifr6_addr;
+	__u32 ifr6_prefixlen;
+	unsigned int ifr6_ifindex;
+};
+
+int confif6(const char *ifname, const char *ip, const char *netmask)
+{
+	struct ifreq ifr;
+	int fd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP);
+	struct sockaddr_in6 addr;
+	struct in6_ifreq ifr6;
+	char *tm;
+	int prefixlen = 64;
+
+	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+	memset(&addr, 0, sizeof(struct sockaddr));
+	addr.sin6_family = AF_INET6;
+	addr.sin6_port = 0;
+
+	ifr.ifr_addr.sa_family = AF_INET6;
+
+	if (ip != NULL)
+	{
+		if (inet_pton(AF_INET6, ip, (void *)&addr.sin6_addr) <= 0)
+		{
+			debug(1, 1, "Bad IPv6 address");
+		}
+		memcpy((char *) &ifr6.ifr6_addr, (char *) &addr.sin6_addr, sizeof(struct in6_addr));
+		if (ioctl(fd, SIOGIFINDEX, &ifr) < 0)
+		{
+			perror("SIOGIFINDEX");
+			debug(1, 1, "SIOGIFINDEX error");
+		}
+		ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+		if (netmask != NULL)
+		{
+			ifr6.ifr6_prefixlen = atoi(netmask);
+		} else {
+			ifr6.ifr6_prefixlen = prefixlen;
+		}
+		if (ioctl(fd, SIOCSIFADDR, &ifr6) < 0)
+		{
+			perror("SIOCSIFADDR");
+			debug(1, 1, "SIOCSIFADDR error");
+		}
+	}
+
+
+	if (tap_mac != NULL)
+	{
+		tm = atom(tap_mac);
+		memcpy(ifr.ifr_hwaddr.sa_data, tm, 6);
+		ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+		ioctl(fd, SIOCSIFHWADDR, &ifr);
+		free(tm);
+	}
+
+	ioctl(fd, SIOCGIFFLAGS, &ifr);
+	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
+
+	ioctl(fd, SIOCSIFFLAGS, &ifr);
+
+	return 0;
+}
 #endif

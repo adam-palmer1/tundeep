@@ -28,13 +28,24 @@ int cwrite(int fd, char *buf, int n)
 	int nwrite = 0;
 	if (udpmode)
 	{
-		if ((nwrite=sendto(fd, buf, n, 0, (struct sockaddr *)&remote_addr, sizeof(remote_addr)))<0)
+		if (ipv6)
 		{
-			debug(1, 1, "Error writing cwrite data");
+			if ((nwrite=sendto(fd, buf, n, 0, (struct sockaddr *)&remote_addr6, sizeof(remote_addr6)))<0)
+			{
+				perror("sendto");
+				debug(1, 1, "Error writing cwrite data");
+			}
+		} else {
+			if ((nwrite=sendto(fd, buf, n, 0, (struct sockaddr *)&remote_addr, sizeof(remote_addr)))<0)
+			{
+				perror("sendto");
+				debug(1, 1, "Error writing cwrite data");
+			}
 		}
 	} else {
 		if((nwrite=write(fd, buf, n))<0)
 		{
+			perror("write");
 			debug(1, 1, "Error writing cwrite data");
 		}
 	}
@@ -62,65 +73,165 @@ int read_n(int fd, char *buf, int n)
 
 int tun_connect(char *hostname, int port)
 {
-        struct hostent *host;
 	int optval = 1;
+	int af = AF_INET; int s = SOCK_STREAM;
 
-	if (udpmode)
-	{
-		sock = socket(AF_INET, SOCK_DGRAM, 0);
-	} else {
-		sock = socket(AF_INET, SOCK_STREAM, 0);
-	}
+	if (udpmode) s = SOCK_DGRAM;
+	if (ipv6) af = AF_INET6;
+
+	sock = socket(af, s, 0);
 
 	//local_addr will be the local end
 	//remote_addr will be the remote end
-	memset(&remote_addr, 0, sizeof(remote_addr));
-	remote_addr.sin_port = htons(port);
-	remote_addr.sin_family = AF_INET;
-	memset(&local_addr, 0, sizeof(local_addr));
-	local_addr.sin_port = htons(port);
-	local_addr.sin_family = AF_INET;
-	if (!udpmode && server_mode)
+	if (!ipv6)
 	{
-		host = gethostbyname(hostname);
-		local_addr.sin_addr = *((struct in_addr *)host->h_addr);
-	} else if (!udpmode && !server_mode) {
-		host = gethostbyname(hostname);
-		remote_addr.sin_addr = *((struct in_addr *)host->h_addr);
-	} else if (udpmode) {
-		host = gethostbyname(hostname);
-		local_addr.sin_addr = *((struct in_addr *)host->h_addr);
-		host = gethostbyname(udpremote);
-		remote_addr.sin_addr = *((struct in_addr *)host->h_addr);
+		memset(&remote_addr, 0, sizeof(remote_addr));
+		remote_addr.sin_port = htons(port);
+		remote_addr.sin_family = AF_INET;
+		memset(&local_addr, 0, sizeof(local_addr));
+		local_addr.sin_port = htons(port);
+		local_addr.sin_family = AF_INET;
+	} else {
+		memset(&remote_addr6, 0, sizeof(remote_addr6));
+		remote_addr6.sin6_port = htons(port);
+		remote_addr6.sin6_family = AF_INET6;
+		memset(&local_addr6, 0, sizeof(local_addr6));
+		local_addr6.sin6_port = htons(port);
+		local_addr6.sin6_family = AF_INET6;
 	}
 
-	//if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&optval, sizeof(optval)) < 0)
-	//{
-	//	debug(1, 1, "setsockopt() failed");
-	//}
+	if (!ipv6)
+	{
+		if (!udpmode && server_mode)
+		{
+			if (!lookup_host (hostname, &local_addr)) { debug(1, 1, "Host lookup failed"); }
+		} else if (!udpmode && !server_mode) {
+			if (!lookup_host (hostname, &remote_addr)) { debug(1, 1, "Host lookup failed"); }
+		} else if (udpmode) {
+			if (!lookup_host (hostname, &local_addr)) { debug(1, 1, "Host lookup failed"); }
+			if (!lookup_host (udpremote, &remote_addr)) { debug(1, 1, "Host lookup failed"); }
+		}
+	} else {
+		if (!udpmode && server_mode)
+		{
+			if (!lookup_host6 (hostname, &local_addr6)) { debug(1, 1, "Host lookup failed"); }
+		} else if (!udpmode && !server_mode) {
+			if (!lookup_host6 (hostname, &remote_addr6)) { debug(1, 1, "Host lookup failed"); }
+		} else if (udpmode) {
+			if (!lookup_host6 (hostname, &local_addr6)) { debug(1, 1, "Host lookup failed"); }
+			if (!lookup_host6 (udpremote, &remote_addr6)) { debug(1, 1, "Host lookup failed"); }
+		}
+	}
+
 	if (server_mode)
 	{
+		//if (setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&optval, sizeof(optval)) < 0)
+		//{
+		//	debug(1, 1, "setsockopt() failed");
+		//}
 		if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&optval, sizeof(optval)) < 0)
 		{
 			debug(1, 1, "setsockopt() failed");
 		}
-		if (bind(sock, (struct sockaddr*) &local_addr, sizeof(local_addr)) < 0)
+		if (!ipv6)
 		{
-			debug(1, 1, "bind() failed");
-		}
-	} else {
-		if (!udpmode)
-		{
-			if (connect(sock, (struct sockaddr*) &remote_addr, sizeof(remote_addr)) < 0)
-			{
-				debug(1, 1, "connect() failed");
-			}
-		} else {
 			if (bind(sock, (struct sockaddr*) &local_addr, sizeof(local_addr)) < 0)
 			{
 				debug(1, 1, "bind() failed");
 			}
+		} else {
+			if (bind(sock, (struct sockaddr *) &local_addr6, sizeof(local_addr6)) < 0)
+			{
+				debug(1, 1, "bind() failed");
+			}
+		}
+	} else {
+		if (!udpmode)
+		{
+			if (!ipv6)
+			{
+				if (connect(sock, (struct sockaddr*) &remote_addr, sizeof(remote_addr)) < 0)
+				{
+					debug(1, 1, "connect() failed");
+				}
+			} else {
+				if (connect(sock, (struct sockaddr*) &remote_addr6, sizeof(remote_addr6)) < 0)
+				{
+					debug(1, 1, "connect() failed");
+				}
+			}
+		} else {
+			if (!ipv6)
+			{
+				if (bind(sock, (struct sockaddr*) &local_addr, sizeof(local_addr)) < 0)
+				{
+					debug(1, 1, "bind() failed");
+				}
+			} else {
+				if (bind(sock, (struct sockaddr*) &local_addr6, sizeof(local_addr6)) < 0)
+				{
+					debug(1, 1, "bind() failed");
+				}
+			}
 		}
 	}
 	return sock;
+}
+
+int lookup_host (const char *host, struct sockaddr_in *r)
+{
+	struct addrinfo hints, *res;
+	int errcode;
+
+	memset (&hints, 0, sizeof (hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags |= AI_CANONNAME;
+
+	errcode = getaddrinfo (host, NULL, &hints, &res);
+	if (errcode != 0)
+	{
+		perror ("getaddrinfo");
+		return 0;
+	}
+
+	while (res)
+	{
+		if (res->ai_family == AF_INET)
+		{
+			r->sin_addr = ((struct sockaddr_in *) res->ai_addr)->sin_addr;
+			return 1;
+		}
+		res = res->ai_next;
+	}
+	return 0;
+}
+
+int lookup_host6 (const char *host, struct sockaddr_in6 *r)
+{
+	struct addrinfo hints, *res;
+	int errcode;
+
+	memset (&hints, 0, sizeof (hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags |= AI_CANONNAME;
+
+	errcode = getaddrinfo (host, NULL, &hints, &res);
+	if (errcode != 0)
+	{
+		perror ("getaddrinfo");
+		return 0;
+	}
+
+	while (res)
+	{
+		if (res->ai_family == AF_INET6)
+		{
+			r->sin6_addr = ((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
+			return 1;
+		}
+		res = res->ai_next;
+	}
+	return 0;
 }

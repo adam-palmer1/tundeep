@@ -15,6 +15,30 @@
 
 #include "def.h"
 
+#ifdef _COMPRESS
+unsigned int _tap_uncompress(char **dst, unsigned int ucompSize, char *comp, unsigned int compSize)
+{
+	//unsigned int nLength;
+	//memcpy((char *)&nLength, comp, 4);
+	*dst = malloc(ucompSize);
+	//uncompress((Bytef *)*dst, (uLong *)&ucompSize, (Bytef *)comp+4, (uLong)ntohs(nLength));
+	uncompress((Bytef *)*dst, (uLong *)&ucompSize, (Bytef *)comp, compSize);
+	return ucompSize;
+}
+
+unsigned int _tap_compress(char **dst, const char *src, unsigned int len)
+{
+	uint32_t compSize = compressBound(len);
+	uint32_t nLength = 0;
+
+	*dst = malloc(compSize+sizeof(uint32_t));
+	compress((Bytef *)*dst+(sizeof(uint32_t)), (uLong *)&compSize, (Bytef *)src, (uLong)len);
+	nLength = htonl(compSize);
+	memcpy(*dst, (char *)&nLength, sizeof(uint32_t));
+	return compSize+sizeof(uint32_t);
+}
+#endif
+
 void debug(int i, int quit, char *fmt, ...)
 {
 	if (DEBUG_LEVEL >= i)

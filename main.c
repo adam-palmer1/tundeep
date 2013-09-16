@@ -19,30 +19,36 @@ pcap_t* descr;
 pthread_t tid[2];
 int sock, connected, bytes_recv = 0;
 struct sockaddr_in local_addr, remote_addr;
+struct sockaddr_in6 local_addr6, remote_addr6;
 socklen_t sin_size;
-int error = 0;
+
 unsigned short server_mode = 0;
 char hostname[256] = {0};
 char udpremote[256] = {0};
 int port = 0;
 unsigned short int tunorif = 0; /* [tun==1, if==2] */
-int err;
 char *tap_ip, *tap_mac, *tap_mask = NULL;
 char *bpf = NULL;
-char recv_data[MAX_PCAP_SIZ];
 short int udpmode = 0;
+short int ipv6 = 0;
+short int tap6 = 0;
+short int cksum = 1;
+short int compmode = 0;
 
 void usage()
 {
 	fprintf(stderr, "Option -%c error.\n", optopt);
-	fprintf(stderr, "*** tundeep by npn ***\n");
+	fprintf(stderr, "*** tundeep v%s by npn ***\n", VER);
 	#ifdef _LINUX
-	fprintf(stderr, "Usage: tundeep <-i iface|-t tapiface> <-h ip> <-p port> <-c|-s> ");
-	fprintf(stderr, "[-x tapip] [-y tapmask] [-u tapmac] [-b bpf] [-d udp mode] [-e udp remote]\n\n");
+	fprintf(stderr, "Usage: tundeep <-i iface|[-t|-T] tapiface> <-h ip> <-p port> [-6] [-C] <-c|-s> ");
+	fprintf(stderr, "[-x tapip] [-y tapmask] [-u tapmac] [-b bpf] [-d udp mode] [-e udp remote] [-K]\n\n");
 	#else
-	fprintf(stderr, "Usage: tundeep [-a] <-i iface> <-h ip> <-p port> <-c|-s> ");
-	fprintf(stderr, "[-b bpf] [-d udp mode] [-e udp remote]\n\n");
+	fprintf(stderr, "Usage: tundeep [-a] <-i iface> <-h ip> <-p port> [-6] [-C] <-c|-s> ");
+	fprintf(stderr, "[-b bpf] [-d udp mode] [-e udp remote] [-K]\n\n");
 	#endif
+	fprintf(stderr, "-6 IPv6 mode\n");
+	fprintf(stderr, "-C compress mode\n");
+	fprintf(stderr, "-K disable checksum\n");
 	fprintf(stderr, "-a print all pcap devs\n");
 	fprintf(stderr, "-b \"bpf\"\n");
 	fprintf(stderr, "-i interface to bind to\n");
@@ -51,11 +57,13 @@ void usage()
 	fprintf(stderr, "-c client mode\n");
 	fprintf(stderr, "-s server mode\n");
 	fprintf(stderr, "-d udp mode\n");
+	fprintf(stderr, "-e udp peer\n");
 	#ifdef _LINUX
 	fprintf(stderr, "-t tap interface \n");
+	fprintf(stderr, "-T ipv6 tap interface \n");
 	fprintf(stderr, "-u tap mac \n");
-	fprintf(stderr, "-x if -t mode, set iface ip\n");
-	fprintf(stderr, "-y if -t mode, set iface mask\n");
+	fprintf(stderr, "-x if -t mode, set iface ip, if -T mode, set iface ipv6 ip\n");
+	fprintf(stderr, "-y if -t mode, set iface mask, if -T mode, set iface ipv6 prefixlen\n");
 	#endif
 	fprintf(stderr, "--------------------\n\n");
 }
@@ -69,14 +77,23 @@ int main(int argc,char **argv)
 	pcap_if_t *alldevsp, *device;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	#ifdef _LINUX
-	while ( ((c = getopt(argc, argv, "e:dai:t:u:h:p:csb:x:y:")) != -1) && (actr < 32) )
+	while ( ((c = getopt(argc, argv, "6CKe:dai:T:t:u:h:p:csb:x:y:")) != -1) && (actr < 32) )
 	#else
-	while ( ((c = getopt(argc, argv, "e:dab:i:h:p:cs")) != -1) && (actr < 32) )
+	while ( ((c = getopt(argc, argv, "6CKe:dab:i:h:p:cs")) != -1) && (actr < 32) )
 	#endif
 	{
 		a[actr] = c; actr++;
 		switch(c)
 		{
+			case 'C':
+				compmode = 1;
+				break;
+			case 'K':
+				cksum = 0;
+				break;
+			case '6':
+				ipv6 = 1;
+				break;
 			case 'b':
 				bpf = malloc(strlen(optarg)+1);
 				strncpy(bpf, optarg, strlen(optarg));
@@ -128,6 +145,10 @@ int main(int argc,char **argv)
 			case 'p':
 				//port
 				port = atoi(optarg);
+				if (port < 0 || port > 65535)
+				{
+					debug(1, 1, "Invalid port number");
+				}
 				break;
 			case 'c':
 				//client mode
@@ -146,6 +167,12 @@ int main(int argc,char **argv)
 				strncpy(iface, optarg, 127);
 				tunorif = TUN;
 				break;
+			case 'T':
+				//tap6
+				strncpy(iface, optarg, 127);
+				tap6 = 1;
+				tunorif = TUN;
+				break;
 			case 'u':
 				//tap mac
 				tap_mac = malloc(18);
@@ -153,13 +180,13 @@ int main(int argc,char **argv)
 				break;
 			case 'x':
 				//tap ip
-				tap_ip = malloc(16);
-				strncpy(tap_ip, optarg, 15);
+				tap_ip = malloc(128);
+				strncpy(tap_ip, optarg, 127);
 				break;
 			case 'y':
 				//tap mask
-				tap_mask = malloc(16);
-				strncpy(tap_mask, optarg, 15);
+				tap_mask = malloc(128);
+				strncpy(tap_mask, optarg, 127);
 				break;
 			#endif
 			case '?':
@@ -172,50 +199,47 @@ int main(int argc,char **argv)
 	if ( ((strchr(a, 's') == NULL) && (strchr(a, 'c') == NULL)) && (strchr(a, 'd') == NULL) )
 	{
 		usage();
-		fprintf(stderr, "Either -s or -c must be specified\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: Either -s or -c must be specified");
 	}
 	if ( (strchr(a, 's') != NULL) && (strchr(a, 'c') != NULL) )
 	{
 		usage();
-		fprintf(stderr, "Option -s and -c can not be specified together\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: Option -s and -c can not be specified together");
 	}
 	if ( (strchr(a, 'h') == NULL) || (strchr(a, 'p') == NULL) )
 	{
 		usage();
-		fprintf(stderr, "Options -h and -p are mandatory\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: Options -h and -p are mandatory");
 	}
 	if ( (strchr(a, 'd') != NULL) && (strchr(a, 'e') == NULL) )
 	{
 		usage();
-		fprintf(stderr, "-e endpoint must be specified in UDP mode\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: -e endpoint must be specified in UDP mode");
 	}
 	if ( (strchr(a, 'd') != NULL) && ( (strchr(a, 'c') != NULL) || (strchr(a, 's') != NULL) ) )
 	{
 		usage();
-		fprintf(stderr, "-c/-s not required in UDP mode\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: -c/-s not required in UDP mode");
 	}
-	if ( (strchr(a, 'a') == NULL) && (strchr(a, 'i') == NULL) && (strchr(a, 't') == NULL) )
+	if ( (strchr(a, 'a') == NULL) && (strchr(a, 'i') == NULL) && (strchr(a, 't') == NULL) && (strchr(a, 'T') == NULL) )
 	{
 		usage();
-		fprintf(stderr, "Option -a, -i OR -t must be specified\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: Option -a, -i, -t or -T must be specified");
 	}
-	if ( (strchr(a, 'a') != NULL) && (strchr(a, 'i') != NULL) && (strchr(a, 't') != NULL) )
+	if ( (strchr(a, 'a') != NULL) && (strchr(a, 'i') != NULL) && (strchr(a, 't') != NULL) && (strchr(a, 'T') != NULL) )
 	{
 		usage();
-		fprintf(stderr, "Option -a, -i and -t can not be specified together\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: Option -a, -i and -t can not be specified together");
+	}
+	if ( (strchr(a, 't') != NULL) && (strchr(a, 'T') != NULL) )
+	{
+		usage();
+		debug(2, 1, "Options -t and -T can not be specified together");
 	}
 	if ( ( (strchr(a, 'a') != NULL) || (strchr(a, 'i') != NULL) ) && ( (strchr(a, 'u') != NULL) || (strchr(a, 'x') != NULL) || (strchr(a, 'y') != NULL) ))
 	{
 		usage();
-		fprintf(stderr, "Options -u, -x and -y only work with -t, not -i or -a\n");
-		debug(2, 1, "Usage error3");
+		debug(2, 1, "Usage: Options -u, -x and -y only work with -t or -T, not -i or -a");
 	}
 
 	#ifdef _LINUX
@@ -226,7 +250,12 @@ int main(int argc,char **argv)
 		{
 			perror("tun/tap failed");
 		}
-		confif(iface, tap_ip, tap_mask);
+		if (tap6)
+		{
+			confif6(iface, tap_ip, tap_mask);
+		} else {
+			confif(iface, tap_ip, tap_mask);
+		}
 		if (tap_ip != NULL) { free(tap_ip); }
 		if (tap_mask != NULL) { free(tap_mask); }
 	}
@@ -262,12 +291,21 @@ int main(int argc,char **argv)
 	}
 
 	/* Now we set up the socket */
-	tun_connect(hostname, port);
+	if (!tun_connect(hostname, port))
+	{
+		debug (1, 1, "tun_connect failed");
+	}
 
 	/* Now launch the threads */
 
-        err = pthread_create(&(tid[0]), NULL, &thread_func, ""); //read from br0 and write to socket
-        err = pthread_create(&(tid[1]), NULL, &thread_func, ""); //read from socket and write to br0
+        if (pthread_create(&(tid[0]), NULL, &thread_func, "") != 0) //read from br0 and write to socket
+	{
+		debug (1, 1, "Thread creation failed");
+	}
+	if (pthread_create(&(tid[1]), NULL, &thread_func, "") != 0) //read from socket and write to br0
+	{
+		debug (1, 1, "Thread creation failed");
+	}
 
 	for (;;) sleep(10); //don't terminate
 

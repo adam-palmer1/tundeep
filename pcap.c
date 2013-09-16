@@ -19,17 +19,47 @@ void send_received_packet(char *s, int plen)
 {
 	/* here we have an inbound packet from pcap or tap that we're about to send over the sock */
 	int nwrite;
-	unsigned int l;
-	l = htons(plen);
+	uint32_t l;
+	l = htonl(plen);
+	#ifdef _COMPRESS
+	char *tmpbuf;
+	char *compbuf;
+	unsigned int complen;
+	#endif
 	if (!server_mode)
 	{
 		connected = sock;
 	}
 	if ( ((server_mode && connected) || (!server_mode)) || (udpmode) )
 	{
-		nwrite = cwrite(connected, (char *)&l, sizeof(l));
-		nwrite = cwrite(connected, s, plen);
-		debug(4, 0, "sending packet of %d (%d) bytes", plen, nwrite);
+		if (cksum)
+		{
+			nwrite = cwrite(connected, PREAMBLE, sizeof(PREAMBLE)-1);
+			debug(6, 0, "Wrote %d byte preamble", nwrite);
+		}
+		#ifdef _COMPRESS
+		if (!compmode)
+		{
+		#endif
+			nwrite = cwrite(connected, (char *)&l, sizeof(l));
+			nwrite = cwrite(connected, s, plen);
+			debug(4, 0, "sending packet of %d (%d) bytes", plen, nwrite);
+		#ifdef _COMPRESS
+		} else {
+			//sending compressed packet
+			tmpbuf = malloc(plen+sizeof(uint32_t));
+			memcpy(tmpbuf, (char *)&l, sizeof(uint32_t));
+			memcpy(tmpbuf+(sizeof(l)), s, plen);
+			complen = _tap_compress(&compbuf, tmpbuf, plen+sizeof(l));
+			l = htonl(complen);
+			nwrite = cwrite(connected, (char *)&l, sizeof(l));
+			nwrite = cwrite(connected, compbuf+(sizeof(l)), complen);
+
+			debug(4, 0, "sending compressed packet was %d now %d (%d)", plen, complen, nwrite);
+			free(compbuf);
+			free(tmpbuf);
+		}
+		#endif
 	} else {
 		debug(2, 0, "send_received_packet: No connected socket");
 	}
@@ -66,7 +96,7 @@ void injection_process(int len, const u_char *packet)
 		case IFACE:
 			if (pcap_sendpacket(descr, packet, len)==-1)
 		        {
-		                debug(1, 0, "error: pcap_sendpacket -1");
+		                debug(1, 0, "error: pcap_sendpacket (%d), -1", len);
 		        } else {
 		                debug(5, 0, "packet sent");
 		        }
