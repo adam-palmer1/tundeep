@@ -48,7 +48,7 @@
 #define VER "1.0_20170728"
 #define PCAP_TIMEOUT 10 //Decrease for better performance/high CPU usage. 10 is reasonable
 #define MAX_PCAP_SIZ 65536
-#define DEBUG_LEVEL 2 //max 6
+#define DEBUG_LEVEL 1 //max 6
 #define IFACE 0
 #define TUN 1
 #define PREAMBLE "\xff\x00\x41\x46\xfe\x01\xfd\xf0"
@@ -59,7 +59,7 @@ void debug(int i, int quit, char *fmt, ...);
 int recvdata(int s);
 int recvdata_c(int s);
 void *thread_func(void *arg);
-inline u_short in_cksum(u_short *addr, int len);
+//inline u_short in_cksum(u_short *addr, int len);
 void pktrecv(u_char *arg, const struct pcap_pkthdr* pkthdr, const u_char* packet);
 void usage();
 int tun_connect(char *hostname, int port);

@@ -1,5 +1,4 @@
 #Makefile for tundeep
-#To compile under Cygwin/Windows uncomment 'CFLAGS' under Cygwin and comment 'CFLAGS' under Linux.
 #To disable Linux specific features i.e. tun/tap (not recommended), remove '-D_LINUX'
 #To disable zlib compression support, remote '-D_COMPRESS -lz'
 
@@ -13,10 +12,10 @@ endif
 
 ifeq ($(MY_OS), Cygwin)
 	#Cygwin
-	CFLAGS=-ggdb -I -O3 -Wall -W -D_COMPRESS -lz -lpthread -lwpcap
+	CFLAGS=-s -I -O3 -Wall -W -D_COMPRESS -lz -lpthread -lwpcap
 else
 	#Linux
-	CFLAGS=-ggdb -I -O3 -Wall -W -D_LINUX -D_COMPRESS -lz -lpthread -lpcap
+	CFLAGS=-s -I -O3 -Wall -W -D_LINUX -D_COMPRESS -lz -lpthread -lpcap
 endif
 
 tundeep: main.o pcap.o threads.o recv.o misc.o sock.o tap.o

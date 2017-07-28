@@ -31,7 +31,7 @@ Please direct questions, comments, criticism and bug reports to adam@adampalmer.
 Contents:
 =========
 1. Purpose
-2. Compiling
+2. Installation
 3. Scenario
 4. Usage
 	4a. TCP Mode
@@ -42,6 +42,7 @@ Contents:
 6. The future
 
 1. Purpose:
+===========
 
 This is a network tunnelling tool. 
 For pivoting/tunnelling deeper into a target network, we have a couple of options;
@@ -57,7 +58,8 @@ This tool should support any layer 2 ethernet protocol. Code has been borrowed f
 remote network, we are able to run any tools that we wish, as if we were directly connected to the target network.
 
 
-2. Compiling:
+2. Installation:
+=============
 
 -D_LINUX adds tun/tap support in the makefile, -D_COMPRESS adds zlib compression support
 
@@ -69,12 +71,18 @@ On Windows:
 [Untested] Guide to winpcap silent install: http://paperlined.org/apps/wireshark/winpcap_silent_install.html
 [Tested] libwpcap support in cygwin: http://mathieu.carbou.free.fr/wiki/?title=Winpcap_/_Libpcap
 
-To compile, just type 'make'
+To compile and run on Kali:
+    a. apt-get install zlib1g-dev libpcap-dev
+    b. git clone https://github.com/iodigitalsec/tundeep
+    c. cd tundeep
+    d. make
+    e. ./tundeep
 
-By default, the application makes a lot of debug noise. Set DEBUG in 'def.h' as you wish (0=No debug, 6=Max Debug).
+You can change debug levels via the DEBUG variable in def.h
 
 
 3. Scenario:
+============
 [Attacker 192.168.200.40 (eth0)]-----[192.168.200.41(eth0) VICTIM 1 10.0.0.5(eth1)]------[10.0.0.10(eth0) VICTIM2 10.10.10.20(eth1)]--------[10.10.10.21(eth0) VICTIM3]
 
 This tool will bring up a tap0 interface on the attacking machine, tunnelled via packet injection on the remote end to the target network.
@@ -95,7 +103,9 @@ The final option if this is really a problem, is using the bpf. I can think of t
 
 
 4. Usage:
+=========
 4a. TCP Mode:
+=============
 On our attacking machine -
 1. 	tundeep -s -t tap0 -h 0.0.0.0 -p 5000 -x 10.0.0.5 -y 255.255.255.0 -u 00:0c:29:c6:44:02
 	Here we will bring up a tap0 interface on our machine with the same MAC (-u) and IP/Mask (-x/-y) as the network we want to pivot to (Victim1's eth1).
@@ -116,6 +126,7 @@ On our attacking machine -
 
 
 4b. UDP Mode:
+=============
 There's no client and server side. Each side needs it's endpoint specified via -e and it's listen IP via -h. 
 To use the scenarios above. On our side:
 
@@ -128,6 +139,7 @@ To use the scenarios above. On our side:
 	tundeep -d -e 10.0.0.5 -i eth1 -h 192.168.200.40 -p 5001
 
 4c. IPv6 Mode:
+==============
 There are two methods to utilize IPv6. The sniffing and injection portion works at layer 2 and is therefore IP version independant.
 Specifying -T on the tap node specifies IPv6 address usage. In that case -x specifies the IPv6 IP and -y specifies the prefix length.
 i.e. ./tundeep -T tap0 -h 0.0.0.0 -p 5000 -s -x fe80::80aa:2aff:fe0b:383f -y 64
@@ -140,8 +152,10 @@ Of course, -T and -6 can be used together for full IPv6.
 
 
 4d. Misc:
+=========
 
 5. Changelog:
+=============
 tundeep_v0.1a_20130910:
 	- Initial Release
 
@@ -154,12 +168,8 @@ tundeep_v0.2a_20130916:
 	- README updates
 	- Added default checksum feature (-K disables) - added overhead, improved reliability. Must be disabled on both sides
 
-tundeep_v1.0_20170728:
-    - Documentation
-    - Testing
-    - Cleanup
-
 6. The Future:
+===============
 Future release plans -
 - Code cleanup
 - MAC/IP mangling support
