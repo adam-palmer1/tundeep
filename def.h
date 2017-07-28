@@ -45,7 +45,7 @@
 #ifndef TUNDEEP_DEFINES
 #define TUNDEEP_DEFINES
 
-#define VER "0.2a_130916"
+#define VER "1.0_20170728"
 #define PCAP_TIMEOUT 10 //Decrease for better performance/high CPU usage. 10 is reasonable
 #define MAX_PCAP_SIZ 65536
 #define DEBUG_LEVEL 2 //max 6
@@ -80,7 +80,6 @@ int read_n(int fd, char *buf, int n);
 int lookup_host (const char *host, struct sockaddr_in *r);
 int lookup_host6 (const char *host, struct sockaddr_in6 *r);
 #ifdef _COMPRESS
-//unsigned int _tap_uncompress(char **dst, unsigned int ucompSize, char *comp);
 unsigned int _tap_uncompress(char **dst, unsigned int ucompSize, char *comp, unsigned int compSize);
 unsigned int _tap_compress(char **dst, const char *src, unsigned int len);
 #endif

@@ -38,7 +38,7 @@ short int compmode = 0;
 void usage()
 {
 	fprintf(stderr, "Option -%c error.\n", optopt);
-	fprintf(stderr, "*** tundeep v%s by npn ***\n", VER);
+	fprintf(stderr, "*** tundeep v%s by Adam Palmer <adam@adampalmer.me> ***\n", VER);
 	#ifdef _LINUX
 	fprintf(stderr, "Usage: tundeep <-i iface|[-t|-T] tapiface> <-h ip> <-p port> [-6] [-C] <-c|-s> ");
 	fprintf(stderr, "[-x tapip] [-y tapmask] [-u tapmac] [-b bpf] [-d udp mode] [-e udp remote] [-K]\n\n");
