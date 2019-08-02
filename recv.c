@@ -74,7 +74,6 @@ int recvdata_c(int s)
 
 	uint32_t plength = 0, p = 0;
 	uint32_t clength = 0, c = 0;
-	unsigned int total_len = 0;
 
 	if (cksum)
 	{
@@ -96,7 +95,7 @@ int recvdata_c(int s)
 	} else {
 		tmp_pkt = rdata(s, c);
 		//tmp_pkt now contains compressed data
-		total_len = _tap_uncompress(&recv_pkt, MAX_PCAP_SIZ-1, tmp_pkt, c);
+		_tap_uncompress(&recv_pkt, MAX_PCAP_SIZ-1, tmp_pkt, c);
 		memcpy((char *)&plength, recv_pkt, sizeof(uint32_t));
 		p = ntohl(plength);
 

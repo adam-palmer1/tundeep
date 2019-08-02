@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-* __Name__:         tundeep v1.0
+* __Name__:         tundeep v1.1
 * __Author__:       [Adam Palmer (npn)](https://www.adampalmer.me/) (adam@adampalmer.me)
 * __README__:       https://www.adampalmer.me/iodigitalsec/tundeep/
 
