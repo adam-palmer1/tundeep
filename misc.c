@@ -43,16 +43,12 @@ void debug(int i, int quit, char *fmt, ...)
 {
 	if (DEBUG_LEVEL >= i)
 	{
-		char *myfmt = malloc(strlen(fmt)+32);
 		va_list argptr;
 		va_start(argptr, fmt);
-		sprintf(myfmt, "DEBUG(%d): ", i);
-		strcat(myfmt, fmt);
-		strcat(myfmt, "\n");
-		vfprintf(stderr, myfmt, argptr);
-
+		fprintf(stderr, "DEBUG(%d): ", i);
+		vfprintf(stderr, fmt, argptr);
+		fprintf(stderr, "\n");
 		va_end(argptr);
-		free(myfmt);
 	}
 	if (quit)
 	{
@@ -64,8 +60,13 @@ char *atoip(const char *ip)
 {
 	char *fip = malloc(4);
 	unsigned int im[4];
-	sscanf(ip, "%x%x%x%x", &im[0], &im[1], &im[2], &im[3]);
-	memcpy(fip, im, 4);
+	unsigned char bytes[4];
+	sscanf(ip, "%u.%u.%u.%u", &im[0], &im[1], &im[2], &im[3]);
+	bytes[0] = (unsigned char)im[0];
+	bytes[1] = (unsigned char)im[1];
+	bytes[2] = (unsigned char)im[2];
+	bytes[3] = (unsigned char)im[3];
+	memcpy(fip, bytes, 4);
 	return fip;
 }
 
@@ -82,7 +83,7 @@ char *atom(const char *mac)
 	unsigned int im[6] = {0};
 	unsigned char m[6] = {0};
 	short int ctr = 0;
-	char *r = malloc(12);
+	char *r = malloc(6);
 	sscanf(mac, "%x:%x:%x:%x:%x:%x", &im[0], &im[1], &im[2], &im[3], &im[4], &im[5]);
 	for (ctr = 0; ctr < 6; ctr++)
 	{
@@ -104,22 +105,10 @@ char *mtoa(u_char *mac)
 
 int check_ip(struct in_addr ip1, const char *ip2)
 {
-	unsigned int ipbytes[4];
-	unsigned int ipbytes2[4];
-	unsigned short int c;
-	char *in_ip;
-
-	in_ip = inet_ntoa(ip1);
-	sscanf(in_ip, "%d.%d.%d.%d", &ipbytes[3], &ipbytes[2], &ipbytes[1], &ipbytes[0]);
-	sscanf(ip2, "%d.%d.%d.%d", &ipbytes2[3], &ipbytes2[2], &ipbytes2[1], &ipbytes2[0]);
-
-
-	for (c = 0; c < 4; c++)
+	struct in_addr ip2_addr;
+	if (inet_pton(AF_INET, ip2, &ip2_addr) != 1)
 	{
-		if (ipbytes[c] != ipbytes2[c])
-		{
-			return 0;
-		}
+		return 0;
 	}
-	return 1;
+	return ip1.s_addr == ip2_addr.s_addr;
 }

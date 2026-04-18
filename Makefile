@@ -12,15 +12,17 @@ endif
 
 ifeq ($(MY_OS), Cygwin)
 	#Cygwin
-	CFLAGS=-s -I -O3 -Wall -W -D_COMPRESS -lz -lpthread -lwpcap
+	CFLAGS=-s -O3 -Wall -W -D_COMPRESS
+	LDFLAGS=-lz -lpthread -lwpcap
 else
 	#Linux
-	CFLAGS=-s -I -O3 -Wall -W -D_LINUX -D_COMPRESS -lz -lpthread -lpcap
+	CFLAGS=-s -O3 -Wall -W -D_LINUX -D_COMPRESS
+	LDFLAGS=-lz -lpthread -lpcap
 endif
 
 tundeep: main.o pcap.o threads.o recv.o misc.o sock.o tap.o
 	@echo "Building for: $(MY_OS) ($(MY_MACH))"
-	$(CC) -o tundeep main.o pcap.o threads.o recv.o misc.o sock.o tap.o $(CFLAGS)
+	$(CC) -o tundeep main.o pcap.o threads.o recv.o misc.o sock.o tap.o $(LDFLAGS)
 clean:
 	rm -f *.o tundeep tundeep.exe
 

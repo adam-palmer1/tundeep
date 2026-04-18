@@ -42,7 +42,7 @@ int tun_alloc(char *dev, int flags)
 		close(fd);
 		return err;
 	}
-	strcpy(dev, ifr.ifr_name);
+	strncpy(dev, ifr.ifr_name, IFNAMSIZ);
 	return fd;
 }
 
@@ -82,6 +82,7 @@ int confif(const char *ifname, const char *ip, const char *netmask)
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
 
 	ioctl(fd, SIOCSIFFLAGS, &ifr);
+	close(fd);
 
 	return 0;
 }
@@ -149,6 +150,7 @@ int confif6(const char *ifname, const char *ip, const char *netmask)
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
 
 	ioctl(fd, SIOCSIFFLAGS, &ifr);
+	close(fd);
 
 	return 0;
 }

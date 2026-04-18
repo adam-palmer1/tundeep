@@ -80,6 +80,10 @@ int tun_connect(char *hostname, int port)
 	if (ipv6) af = AF_INET6;
 
 	sock = socket(af, s, 0);
+	if (sock < 0)
+	{
+		debug(1, 1, "socket() failed");
+	}
 
 	//local_addr will be the local end
 	//remote_addr will be the remote end
@@ -180,7 +184,7 @@ int tun_connect(char *hostname, int port)
 
 int lookup_host (const char *host, struct sockaddr_in *r)
 {
-	struct addrinfo hints, *res;
+	struct addrinfo hints, *res, *res0;
 	int errcode;
 
 	memset (&hints, 0, sizeof (hints));
@@ -195,21 +199,24 @@ int lookup_host (const char *host, struct sockaddr_in *r)
 		return 0;
 	}
 
+	res0 = res;
 	while (res)
 	{
 		if (res->ai_family == AF_INET)
 		{
 			r->sin_addr = ((struct sockaddr_in *) res->ai_addr)->sin_addr;
+			freeaddrinfo(res0);
 			return 1;
 		}
 		res = res->ai_next;
 	}
+	freeaddrinfo(res0);
 	return 0;
 }
 
 int lookup_host6 (const char *host, struct sockaddr_in6 *r)
 {
-	struct addrinfo hints, *res;
+	struct addrinfo hints, *res, *res0;
 	int errcode;
 
 	memset (&hints, 0, sizeof (hints));
@@ -224,14 +231,17 @@ int lookup_host6 (const char *host, struct sockaddr_in6 *r)
 		return 0;
 	}
 
+	res0 = res;
 	while (res)
 	{
 		if (res->ai_family == AF_INET6)
 		{
 			r->sin6_addr = ((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
+			freeaddrinfo(res0);
 			return 1;
 		}
 		res = res->ai_next;
 	}
+	freeaddrinfo(res0);
 	return 0;
 }

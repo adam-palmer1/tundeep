@@ -14,12 +14,14 @@
 */
 #include "def.h"
 
-#ifdef _COMPRESS
-
 char *rdata(int fd, int len)
 {
 	int nread;
 	char *retbuf = malloc(len);
+	if (retbuf == NULL)
+	{
+		debug(1, 1, "malloc failed in rdata");
+	}
 	if (udpmode)
 	{
 		nread = recvfrom(fd, retbuf, len, 0, NULL, NULL);
@@ -65,6 +67,7 @@ int findcksum(int fd)
 	return fd;
 }
 
+#ifdef _COMPRESS
 int recvdata_c(int s)
 {
 	//unsigned int _tap_uncompress(char **dst, unsigned int ucompSize, char *comp);

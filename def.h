@@ -24,8 +24,8 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <stdint.h>
 #include <string.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #ifdef _LINUX
@@ -45,7 +45,7 @@
 #ifndef TUNDEEP_DEFINES
 #define TUNDEEP_DEFINES
 
-#define VER "1.0_20170728"
+#define VER "1.1"
 #define PCAP_TIMEOUT 10 //Decrease for better performance/high CPU usage. 10 is reasonable
 #define MAX_PCAP_SIZ 65536
 #define DEBUG_LEVEL 1 //max 6
@@ -79,6 +79,8 @@ int cwrite(int fd, char *buf, int n);
 int read_n(int fd, char *buf, int n);
 int lookup_host (const char *host, struct sockaddr_in *r);
 int lookup_host6 (const char *host, struct sockaddr_in6 *r);
+char *rdata(int fd, int len);
+int findcksum(int fd);
 #ifdef _COMPRESS
 unsigned int _tap_uncompress(char **dst, unsigned int ucompSize, char *comp, unsigned int compSize);
 unsigned int _tap_compress(char **dst, const char *src, unsigned int len);

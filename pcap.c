@@ -48,6 +48,11 @@ void send_received_packet(char *s, int plen)
 		} else {
 			//sending compressed packet
 			tmpbuf = malloc(plen+sizeof(uint32_t));
+			if (tmpbuf == NULL)
+			{
+				debug(1, 0, "malloc failed in send_received_packet");
+				return;
+			}
 			memcpy(tmpbuf, (char *)&l, sizeof(uint32_t));
 			memcpy(tmpbuf+(sizeof(l)), s, plen);
 			complen = _tap_compress(&compbuf, tmpbuf, plen+sizeof(l));
@@ -69,14 +74,16 @@ void send_received_packet(char *s, int plen)
 void read_loop()
 {
 	unsigned int nread;
-	char *buffer = NULL;
+	char *buffer = malloc(MAX_PCAP_SIZ+1);
+	if (buffer == NULL)
+	{
+		debug(1, 1, "malloc failed in read_loop");
+	}
 	while (1)
 	{
-		buffer = malloc(MAX_PCAP_SIZ+1);
 		nread = cread(tap_fd, buffer, MAX_PCAP_SIZ);
 		debug(6, 0, "Read %d bytes from tapdev", nread);
 		send_received_packet(buffer, nread);
-		free(buffer);
 	}
 }
 #endif
@@ -103,7 +110,7 @@ void injection_process(int len, const u_char *packet)
 			break;
 		#ifdef _LINUX
 		case TUN:
-			if (!write(tap_fd, (char *)packet, len))
+			if (write(tap_fd, (char *)packet, len) < 0)
 			{
 				debug(3, 0, "tap_write error");
 			}

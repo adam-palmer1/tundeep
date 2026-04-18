@@ -27,7 +27,7 @@ char hostname[256] = {0};
 char udpremote[256] = {0};
 int port = 0;
 unsigned short int tunorif = 0; /* [tun==1, if==2] */
-char *tap_ip, *tap_mac, *tap_mask = NULL;
+char *tap_ip = NULL, *tap_mac = NULL, *tap_mask = NULL;
 char *bpf = NULL;
 short int udpmode = 0;
 short int ipv6 = 0;
@@ -96,7 +96,7 @@ int main(int argc,char **argv)
 				break;
 			case 'b':
 				bpf = malloc(strlen(optarg)+1);
-				strncpy(bpf, optarg, strlen(optarg));
+				strncpy(bpf, optarg, strlen(optarg)+1);
 				break;
 			case 'a':
 				//interface
@@ -128,6 +128,7 @@ int main(int argc,char **argv)
 				}
 				for (device=alldevsp, i=0; i < inum-1; device = device->next, i++);
 				strncpy(iface, device->name, 127);
+				pcap_freealldevs(alldevsp);
 				tunorif = IFACE;
 				break;
 			case 'i':
@@ -289,6 +290,7 @@ int main(int argc,char **argv)
 		fprintf(stderr, "Error setting filter\n");
 		debug(2, 1, "pcap filter");
 	}
+	pcap_freecode(&fp);
 
 	/* Now we set up the socket */
 	if (!tun_connect(hostname, port))
